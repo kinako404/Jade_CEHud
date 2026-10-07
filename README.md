@@ -10,9 +10,8 @@
 >   and `RayTracing.canBeTarget` (allows the furniture's hidden Interaction entities and ignores CraftEngine's display
 >   entities, whose inflated empty bounding box would otherwise show the backing item, e.g. "Paper").
 > - Build: `./gradlew build` → `build/libs/Jade-mc26.3-Fabric-<version>.jar` (mod id stays `jade`; replaces upstream Jade).
-> - End-to-end test against a running server: start a display (`Xvfb :99 &`), `op CeHudBot` on the server, then
->   `DISPLAY=:99 ./gradlew runClientGameTest` (`src/gametest/`). It places blocks at 0 250 2 in the overworld and checks
->   the tooltip and that no boss bar is shown.
+> - End-to-end tests: the shared headless client in `../mc-test-client` (scenario `scenarios/cehud-jade.txt`,
+>   mod set `jade-cehud`; copy a freshly built jar there first).
 > - License: upstream is CC BY-NC-SA 4.0; this fork inherits it (non-commercial, share-alike).
 
 [Documentation](https://jademc.readthedocs.io/en/latest/)

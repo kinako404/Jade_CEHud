@@ -103,10 +103,6 @@ public final class CEHudClient {
 		matched = null;
 	}
 
-	public static boolean isServerSupported() {
-		return serverSupported;
-	}
-
 	public static boolean isFurnitureEntity(int entityId) {
 		return serverSupported && entities.containsKey(entityId);
 	}
