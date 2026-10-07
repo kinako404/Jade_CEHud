@@ -7,7 +7,8 @@
 >
 > - Code: `src/main/java/snownee/jade/addon/cehud/` (protocol in `CEHudPackets`, must match `ClientModBridge` in the plugin).
 >   Hooks in upstream files: payload registration (`CommonProxy`, `ClientProxy`), plugin entrypoint (`fabric.mod.json`),
->   and `Jade.canBeTarget` (allows the furniture's hidden Interaction entities).
+>   and `RayTracing.canBeTarget` (allows the furniture's hidden Interaction entities and ignores CraftEngine's display
+>   entities, whose inflated empty bounding box would otherwise show the backing item, e.g. "Paper").
 > - Build: `./gradlew build` → `build/libs/Jade-mc26.3-Fabric-<version>.jar` (mod id stays `jade`; replaces upstream Jade).
 > - End-to-end test against a running server: start a display (`Xvfb :99 &`), `op CeHudBot` on the server, then
 >   `DISPLAY=:99 ./gradlew runClientGameTest` (`src/gametest/`). It places blocks at 0 250 2 in the overworld and checks

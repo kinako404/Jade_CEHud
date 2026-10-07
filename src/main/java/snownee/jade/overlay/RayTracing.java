@@ -24,6 +24,7 @@ import net.minecraft.world.phys.HitResult.Type;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import snownee.jade.Jade;
+import snownee.jade.addon.cehud.CEHudClient;
 import snownee.jade.api.config.IWailaConfig;
 
 public class RayTracing {
@@ -191,6 +192,12 @@ public class RayTracing {
 		}
 		if (viewEntity instanceof Player && Objects.requireNonNull(mc.gameMode).isDestroying() &&
 				target.getType() == EntityTypes.ITEM) {
+			return false;
+		}
+		if (CEHudClient.isFurnitureEntity(target.getId())) {
+			return true;
+		}
+		if (CEHudClient.isRendererEntity(target)) {
 			return false;
 		}
 		return Jade.canBeTarget(target, viewEntity) && entityFilter.test(target);

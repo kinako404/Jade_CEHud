@@ -28,8 +28,14 @@ import snownee.jade.impl.ui.TextElementImpl;
  */
 public class CEHudClientGameTest implements FabricClientGameTest {
 	private static final String HOST = System.getProperty("cehud.test.host", "localhost:25565");
+	/**
+	 * kind, id, optional pitch. The bot stands slightly off-axis (x 0.3, yaw -5): Jade's entity sweep finds nothing when the
+	 * ray's bounding box is flat on an axis. Pitch 29 aims through the middle of the entity-rendered crystal cluster,
+	 * where the inflated box of CraftEngine's item display used to win over the block.
+	 */
 	private static final String[][] CASES = {
 			{"ce", "tconstruct:scorched_bricks"},
+			{"ce", "tconstruct:ender_slime_crystal_cluster", "29"},
 			{"ce", "tconstruct:clear_glass"},
 			{"ce", "tconstruct:seared_fuel_tank"},
 			{"ce", "tconstruct:greenheart_wall_sign"},
@@ -62,6 +68,7 @@ public class CEHudClientGameTest implements FabricClientGameTest {
 		int shot = 0;
 		for (String[] c : CASES) {
 			command(context, "setblock 0 250 2 minecraft:air");
+			command(context, "tp @s 0.3 250 0.5 -5 " + (c.length > 2 ? c[2] : "40"));
 			context.waitTicks(10);
 			if (c[0].equals("ce")) {
 				command(context, "ce debug setblock 0 250 2 " + c[1]);
@@ -75,8 +82,8 @@ public class CEHudClientGameTest implements FabricClientGameTest {
 			if (bossBars != 0) {
 				failures.add(c[1] + ": boss bar shown to modded client");
 			}
-			if (c[0].equals("ce") && !result.contains("jade:mod_name") ) {
-				failures.add(c[1] + ": no tooltip");
+			if (c[0].equals("ce") && !result.contains("rep=minecraft:")) {
+				failures.add(c[1] + ": not shown as the CE block");
 			}
 			context.takeScreenshot("cehud-" + (shot++) + "-" + c[1].replace(':', '_'));
 		}

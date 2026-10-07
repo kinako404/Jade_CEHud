@@ -33,6 +33,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -107,6 +109,15 @@ public final class CEHudClient {
 
 	public static boolean isFurnitureEntity(int entityId) {
 		return serverSupported && entities.containsKey(entityId);
+	}
+
+	/**
+	 * CraftEngine draws entity-rendered blocks and furniture with display entities. Vanilla never targets them, but
+	 * Jade's own entity sweep inflates their empty bounding box, so the middle of e.g. a crystal cluster would show
+	 * the display's backing item ("Paper") instead of the block behind it.
+	 */
+	public static boolean isRendererEntity(Entity entity) {
+		return serverSupported && (entity instanceof Display.ItemDisplay || entity instanceof Display.BlockDisplay);
 	}
 
 	public static void handleCarriers(CEHudPackets.Carriers payload) {
