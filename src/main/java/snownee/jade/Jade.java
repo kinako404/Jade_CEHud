@@ -32,6 +32,7 @@ import net.minecraft.world.level.gamerules.GameRuleCategory;
 import net.minecraft.world.level.gamerules.GameRules;
 import snownee.jade.addon.core.ModNameProvider;
 import snownee.jade.addon.harvest.LootTableMineableCollector;
+import snownee.jade.addon.cehud.CEHudClient;
 import snownee.jade.api.IWailaPlugin;
 import snownee.jade.api.JadeIds;
 import snownee.jade.api.config.IWailaConfig;
@@ -298,6 +299,9 @@ public class Jade {
 	public static boolean canBeTarget(Entity target, Entity viewEntity) {
 		if (target.isRemoved()) {
 			return false;
+		}
+		if (CEHudClient.isFurnitureEntity(target.getId())) {
+			return true;
 		}
 		if (target.isSpectator()) {
 			return false;

@@ -95,6 +95,7 @@ import snownee.jade.Jade;
 import snownee.jade.addon.universal.ItemCollector;
 import snownee.jade.addon.universal.ItemIterator;
 import snownee.jade.addon.universal.ItemStorageProvider;
+import snownee.jade.addon.cehud.CEHudPackets;
 import snownee.jade.api.Accessor;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IWailaPlugin;
@@ -601,6 +602,9 @@ public final class CommonProxy implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(ClientHandshakePacket.TYPE, ClientHandshakePacket.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ServerHandshakePacket.TYPE, ServerHandshakePacket.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(ShowOverlayPacket.TYPE, ShowOverlayPacket.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(CEHudPackets.Target.TYPE, CEHudPackets.Target.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(CEHudPackets.Carriers.TYPE, CEHudPackets.Carriers.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(CEHudPackets.Hello.TYPE, CEHudPackets.Hello.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(
 				RequestEntityPacket.TYPE, (payload, context) -> {
 					RequestEntityPacket.handle(payload, context::player);

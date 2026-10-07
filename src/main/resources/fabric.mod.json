@@ -31,7 +31,8 @@
 			"snownee.jade.addon.vanilla.VanillaPlugin",
 			"snownee.jade.addon.universal.UniversalPlugin",
 			"snownee.jade.addon.access.AccessibilityPlugin",
-			"snownee.jade.addon.debug.DebugPlugin"
+			"snownee.jade.addon.debug.DebugPlugin",
+			"snownee.jade.addon.cehud.CEHudPlugin"
 		],
 		"modmenu": [
 			"snownee.jade.compat.ModMenuCompat"

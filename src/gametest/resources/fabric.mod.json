@@ -1,0 +1,15 @@
+{
+	"schemaVersion": 1,
+	"id": "jade_cehud_test",
+	"version": "1.0.0",
+	"name": "Jade CE HUD client game test",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"snownee.jade.cehudtest.CEHudClientGameTest"
+		]
+	},
+	"depends": {
+		"jade": "*"
+	}
+}

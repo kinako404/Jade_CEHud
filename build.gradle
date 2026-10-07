@@ -53,6 +53,20 @@ dependencies {
 //    compileOnly "cc.cassian.rrv:reliable-recipe-viewer-fabric:${project.rrv_version}"
 }
 
+// Client game test for the CE Block HUD bridge: ./gradlew runClientGameTest with a CEBlockHud server on
+// localhost:25565 (override with -Dcehud.test.host). Needs a display, e.g. xvfb-run. Not part of the mod jar.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = "jade_cehud_test"
+        enableGameTests = false
+        enableClientGameTests = true
+        eula = true
+        clearRunDirectory = false
+        username = "CeHudBot"
+    }
+}
+
 loom {
     accessWidenerPath = file("src/main/resources/${project.mod_id}.classtweaker")
 }

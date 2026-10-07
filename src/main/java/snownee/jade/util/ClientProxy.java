@@ -72,6 +72,8 @@ import net.minecraft.world.level.material.FluidState;
 import snownee.jade.Jade;
 import snownee.jade.JadeClient;
 import snownee.jade.addon.harvest.HarvestToolProvider;
+import snownee.jade.addon.cehud.CEHudClient;
+import snownee.jade.addon.cehud.CEHudPackets;
 import snownee.jade.api.Accessor;
 import snownee.jade.api.ITooltip;
 import snownee.jade.api.JadeIds;
@@ -135,6 +137,7 @@ public final class ClientProxy implements ClientModInitializer {
 	private static void onEntityLeave(Entity entity, ClientLevel level) {
 		try {
 			DatapackBlockManager.onEntityLeave(entity);
+			CEHudClient.onEntityLeave(entity.getId());
 		} catch (Throwable e) {
 			WailaExceptionHandler.handleErr(e, null, null);
 		}
@@ -160,6 +163,7 @@ public final class ClientProxy implements ClientModInitializer {
 
 	private static void onPlayerLeave(ClientPacketListener handler, Minecraft client) {
 		ObjectDataCenter.disconnect();
+		CEHudClient.reset();
 		WailaClientRegistration.instance().setServerConfig(Map.of());
 	}
 
@@ -356,6 +360,7 @@ public final class ClientProxy implements ClientModInitializer {
 		});
 		ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 			ClientPlayNetworking.send(new ClientHandshakePacket(Jade.PROTOCOL_VERSION));
+			ClientPlayNetworking.send(new CEHudPackets.Hello(CEHudPackets.PROTOCOL));
 		});
 
 		ClientPlayNetworking.registerGlobalReceiver(
@@ -366,6 +371,10 @@ public final class ClientProxy implements ClientModInitializer {
 				ServerHandshakePacket.TYPE, (payload, context) -> {
 					ServerHandshakePacket.handle(payload, ClientPayloadContext.of(context.client()));
 				});
+		ClientPlayNetworking.registerGlobalReceiver(
+				CEHudPackets.Target.TYPE, (payload, context) -> context.client().execute(() -> CEHudClient.handleTarget(payload)));
+		ClientPlayNetworking.registerGlobalReceiver(
+				CEHudPackets.Carriers.TYPE, (payload, context) -> context.client().execute(() -> CEHudClient.handleCarriers(payload)));
 		ClientPlayNetworking.registerGlobalReceiver(
 				ShowOverlayPacket.TYPE, (payload, context) -> {
 					ShowOverlayPacket.handle(payload, ClientPayloadContext.of(context.client()));
