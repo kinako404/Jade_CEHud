@@ -17,7 +17,9 @@ import net.minecraft.resources.Identifier;
  * Strings are MC strings (VarInt byte length + UTF-8). Components are JSON text components.
  */
 public final class CEHudPackets {
-	public static final int PROTOCOL = 1;
+	/** Newest protocol this client speaks (sent in {@link Hello}); 2 adds {@link Harvest}. */
+	public static final int PROTOCOL = 2;
+	public static final int MIN_PROTOCOL = 1;
 	public static final String NAMESPACE = "cehud";
 
 	public static final byte KIND_RESET = 0;
@@ -28,9 +30,16 @@ public final class CEHudPackets {
 	private CEHudPackets() {
 	}
 
-	/** What to show for one target. */
-	public record Info(String nameJson, String sourceJson, List<String> extraJson, String iconItem, String iconModel) {
-		static Info read(FriendlyByteBuf buf) {
+	public static boolean isSupported(int protocol) {
+		return protocol >= MIN_PROTOCOL && protocol <= PROTOCOL;
+	}
+
+	/**
+	 * What to show for one target. Protocol 2 appends a byte (0/1) for whether {@link Harvest} follows.
+	 */
+	public record Info(String nameJson, String sourceJson, List<String> extraJson, String iconItem, String iconModel,
+			@Nullable Harvest harvest) {
+		static Info read(FriendlyByteBuf buf, int protocol) {
 			String name = buf.readUtf();
 			String source = buf.readUtf();
 			int count = buf.readVarInt();
@@ -38,10 +47,13 @@ public final class CEHudPackets {
 			for (int i = 0; i < count; i++) {
 				extras.add(buf.readUtf());
 			}
-			return new Info(name, source, List.copyOf(extras), buf.readUtf(), buf.readUtf());
+			String iconItem = buf.readUtf();
+			String iconModel = buf.readUtf();
+			Harvest harvest = protocol >= 2 && buf.readBoolean() ? Harvest.read(buf) : null;
+			return new Info(name, source, List.copyOf(extras), iconItem, iconModel, harvest);
 		}
 
-		void write(FriendlyByteBuf buf) {
+		void write(FriendlyByteBuf buf, int protocol) {
 			buf.writeUtf(nameJson);
 			buf.writeUtf(sourceJson);
 			buf.writeVarInt(extraJson.size());
@@ -50,6 +62,40 @@ public final class CEHudPackets {
 			}
 			buf.writeUtf(iconItem);
 			buf.writeUtf(iconModel);
+			if (protocol >= 2) {
+				buf.writeBoolean(harvest != null);
+				if (harvest != null) {
+					harvest.write(buf);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Breaking/harvesting info computed by the server from the CraftEngine block settings and the held item.
+	 * Wire: bool unbreakable, bool requiresTool, byte canHarvest (0 no, 1 yes, 2 unknown), VarInt count + tool item ids.
+	 */
+	public record Harvest(boolean unbreakable, boolean requiresTool, @Nullable Boolean canHarvest, List<String> tools) {
+		static Harvest read(FriendlyByteBuf buf) {
+			boolean unbreakable = buf.readBoolean();
+			boolean requiresTool = buf.readBoolean();
+			byte can = buf.readByte();
+			int count = buf.readVarInt();
+			List<String> tools = new ArrayList<>(count);
+			for (int i = 0; i < count; i++) {
+				tools.add(buf.readUtf());
+			}
+			return new Harvest(unbreakable, requiresTool, can == 2 ? null : can == 1, List.copyOf(tools));
+		}
+
+		void write(FriendlyByteBuf buf) {
+			buf.writeBoolean(unbreakable);
+			buf.writeBoolean(requiresTool);
+			buf.writeByte(canHarvest == null ? 2 : canHarvest ? 1 : 0);
+			buf.writeVarInt(tools.size());
+			for (String tool : tools) {
+				buf.writeUtf(tool);
+			}
 		}
 	}
 
@@ -69,7 +115,7 @@ public final class CEHudPackets {
 
 		private static Target read(RegistryFriendlyByteBuf buf) {
 			int protocol = buf.readVarInt();
-			if (protocol != PROTOCOL) {
+			if (!isSupported(protocol)) {
 				buf.skipBytes(buf.readableBytes());
 				return new Target(protocol, KIND_RESET, 0, 0, 0, new int[0], null);
 			}
@@ -83,7 +129,7 @@ public final class CEHudPackets {
 					y = buf.readInt();
 					z = buf.readInt();
 					if (kind == KIND_BLOCK) {
-						info = Info.read(buf);
+						info = Info.read(buf, protocol);
 					}
 				}
 				case KIND_ENTITY -> {
@@ -91,7 +137,7 @@ public final class CEHudPackets {
 					for (int i = 0; i < ids.length; i++) {
 						ids[i] = buf.readVarInt();
 					}
-					info = Info.read(buf);
+					info = Info.read(buf, protocol);
 				}
 				default -> buf.skipBytes(buf.readableBytes());
 			}
@@ -107,7 +153,7 @@ public final class CEHudPackets {
 					buf.writeInt(target.y);
 					buf.writeInt(target.z);
 					if (target.kind == KIND_BLOCK && target.info != null) {
-						target.info.write(buf);
+						target.info.write(buf, target.protocol);
 					}
 				}
 				case KIND_ENTITY -> {
@@ -116,7 +162,7 @@ public final class CEHudPackets {
 						buf.writeVarInt(id);
 					}
 					if (target.info != null) {
-						target.info.write(buf);
+						target.info.write(buf, target.protocol);
 					}
 				}
 				default -> {
@@ -144,7 +190,7 @@ public final class CEHudPackets {
 				},
 				buf -> {
 					int protocol = buf.readVarInt();
-					if (protocol != PROTOCOL) {
+					if (!isSupported(protocol)) {
 						buf.skipBytes(buf.readableBytes());
 						return new Carriers(protocol, new byte[0]);
 					}

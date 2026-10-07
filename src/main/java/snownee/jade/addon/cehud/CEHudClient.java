@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.GZIPInputStream;
 
@@ -35,6 +36,7 @@ import net.minecraft.network.chat.ComponentSerialization;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Display;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -43,6 +45,8 @@ import net.minecraft.world.phys.HitResult;
 import snownee.jade.Jade;
 import snownee.jade.api.Accessor;
 import snownee.jade.api.JadeIds;
+import snownee.jade.api.config.IPluginConfig;
+import snownee.jade.api.config.IWailaConfig;
 import snownee.jade.api.theme.IThemeHelper;
 import snownee.jade.api.ui.BoxElement;
 import snownee.jade.api.ui.Element;
@@ -61,6 +65,8 @@ public final class CEHudClient {
 	/** How long to show nothing while waiting for the server to describe a carrier block seen for the first time. */
 	private static final long HOLD_MILLIS = 400;
 	private static final int MAX_ENTRIES = 1024;
+	private static final Component CHECK = Component.literal("✔");
+	private static final Component CROSS = Component.literal("✕");
 	private static final Set<Identifier> KEPT_TAGS = Set.of(
 			JadeIds.CORE_OBJECT_NAME,
 			JadeIds.CORE_ROOT_ICON,
@@ -82,7 +88,8 @@ public final class CEHudClient {
 	private static @Nullable Accessor<?> matchedAccessor;
 	private static @Nullable Entry matched;
 
-	private record Entry(Component name, Component source, List<Component> extras, ItemStack icon) {
+	private record Entry(Component name, Component source, List<Component> extras, ItemStack icon,
+			CEHudPackets.@Nullable Harvest harvest, List<ItemStack> tools) {
 	}
 
 	private CEHudClient() {
@@ -117,7 +124,7 @@ public final class CEHudClient {
 	}
 
 	public static void handleCarriers(CEHudPackets.Carriers payload) {
-		if (payload.protocol() != CEHudPackets.PROTOCOL) {
+		if (!CEHudPackets.isSupported(payload.protocol())) {
 			return;
 		}
 		Set<BlockState> states = new HashSet<>();
@@ -144,7 +151,7 @@ public final class CEHudClient {
 	}
 
 	public static void handleTarget(CEHudPackets.Target payload) {
-		if (payload.protocol() != CEHudPackets.PROTOCOL) {
+		if (!CEHudPackets.isSupported(payload.protocol())) {
 			return;
 		}
 		checkLevel();
@@ -240,7 +247,56 @@ public final class CEHudClient {
 			index++;
 			tooltip.add(Math.min(index, tooltip.size()), JadeUI.text(extra).tag(EXTRA_TAG));
 		}
+		if (entry.harvest() != null) {
+			addHarvest(tooltip, entry, accessor.getPlayer());
+		}
 		tooltip.setIcon(IThemeHelper.get().theme().modifyIcon(JadeUI.item(accessor.getServersideRep())));
+	}
+
+	/** Same layout and options as Jade's HarvestToolProvider, but with the server's answer for the CE block. */
+	private static void addHarvest(Tooltip tooltip, Entry entry, Player player) {
+		CEHudPackets.Harvest harvest = Objects.requireNonNull(entry.harvest());
+		IPluginConfig config = IWailaConfig.get().plugin();
+		if (!config.get(JadeIds.MC_HARVEST_TOOL)) {
+			return;
+		}
+		if (!config.get(JadeIds.MC_HARVEST_TOOL_CREATIVE) && (player.isCreative() || player.isSpectator())) {
+			return;
+		}
+		IThemeHelper theme = IThemeHelper.get();
+		if (harvest.unbreakable()) {
+			if (config.get(JadeIds.MC_SHOW_UNBREAKABLE)) {
+				Component text = theme.failure(Component.translatable("jade.harvest_tool.unbreakable"));
+				tooltip.add(JadeUI.text(text).narration("").tag(JadeIds.MC_HARVEST_TOOL));
+			}
+			return;
+		}
+		if (!harvest.requiresTool() && !config.get(JadeIds.MC_EFFECTIVE_TOOL)) {
+			return;
+		}
+		boolean showMark = harvest.canHarvest() != null && (harvest.requiresTool() || !harvest.canHarvest());
+		if (entry.tools().isEmpty() && !showMark) {
+			return;
+		}
+		boolean newLine = config.get(JadeIds.MC_HARVEST_TOOL_NEW_LINE);
+		int offsetY = -3;
+		List<Element> elements = new ArrayList<>();
+		elements.add(JadeUI.spacer(newLine ? -2 : 5, newLine ? 10 : 0).flexGrow(1000));
+		for (ItemStack tool : entry.tools()) {
+			elements.add(JadeUI.item(tool, 0.75f).offset(-1, offsetY).size(10, 0));
+		}
+		if (showMark) {
+			Component mark = harvest.canHarvest() ? theme.success(CHECK) : theme.danger(CROSS);
+			elements.add(JadeUI.text(mark).scale(0.75F).size(0, 0).offset(-3, 6 + offsetY));
+		}
+		for (Element element : elements) {
+			element.narration("").tag(JadeIds.MC_HARVEST_TOOL);
+		}
+		if (newLine) {
+			tooltip.add(elements);
+		} else {
+			tooltip.append(0, elements);
+		}
 	}
 
 	private static int nameLineIndex(Tooltip tooltip) {
@@ -263,13 +319,23 @@ public final class CEHudClient {
 
 	private static Entry toEntry(CEHudPackets.@Nullable Info info) {
 		if (info == null) {
-			return new Entry(Component.empty(), Component.empty(), List.of(), ItemStack.EMPTY);
+			return new Entry(Component.empty(), Component.empty(), List.of(), ItemStack.EMPTY, null, List.of());
 		}
 		List<Component> extras = new ArrayList<>(info.extraJson().size());
 		for (String json : info.extraJson()) {
 			extras.add(parse(json));
 		}
-		return new Entry(parse(info.nameJson()), parse(info.sourceJson()), List.copyOf(extras), icon(info.iconItem(), info.iconModel()));
+		List<ItemStack> tools = new ArrayList<>();
+		if (info.harvest() != null) {
+			for (String tool : info.harvest().tools()) {
+				ItemStack stack = icon(tool, "");
+				if (!stack.isEmpty()) {
+					tools.add(stack);
+				}
+			}
+		}
+		return new Entry(parse(info.nameJson()), parse(info.sourceJson()), List.copyOf(extras),
+				icon(info.iconItem(), info.iconModel()), info.harvest(), List.copyOf(tools));
 	}
 
 	private static Component parse(String json) {
