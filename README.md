@@ -3,6 +3,7 @@
 > **CE Block HUD fork** (branch base: upstream `26.3-fabric`). On servers running the CEBlockHud Paper plugin
 > (`../ce-block-hud`), Jade shows the real CraftEngine block/furniture name, icon and pack instead of the vanilla
 > carrier block (mushroom stem, note block, tripwire …), and the server stops sending its boss bar to this player.
+> This also covers the CraftEngine client mod's real custom blocks (`craftengine:custom_N` placeholders).
 > On other servers it behaves exactly like upstream Jade.
 >
 > - Code: `src/main/java/snownee/jade/addon/cehud/` (protocol in `CEHudPackets`, must match `ClientModBridge` in the plugin).

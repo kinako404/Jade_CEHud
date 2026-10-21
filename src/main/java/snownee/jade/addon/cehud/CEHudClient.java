@@ -56,7 +56,8 @@ import snownee.jade.impl.EntityAccessorImpl;
 import snownee.jade.impl.Tooltip;
 
 /**
- * Client side of the CEBlockHud bridge. CraftEngine blocks look like vanilla carrier blocks to the client;
+ * Client side of the CEBlockHud bridge. CraftEngine blocks look like vanilla carrier blocks (or, with the CraftEngine
+ * client mod, like its {@code craftengine:custom_N} placeholder blocks) to the client;
  * the server pushes the real name/source/extra lines for the block the player looks at, and this class
  * swaps them into Jade's tooltip. All methods run on the client thread.
  */
@@ -64,6 +65,7 @@ public final class CEHudClient {
 	public static final Identifier EXTRA_TAG = Identifier.fromNamespaceAndPath(CEHudPackets.NAMESPACE, "extra");
 	/** How long to show nothing while waiting for the server to describe a carrier block seen for the first time. */
 	private static final long HOLD_MILLIS = 400;
+	private static final String CRAFTENGINE_NAMESPACE = "craftengine";
 	private static final int MAX_ENTRIES = 1024;
 	private static final Component CHECK = Component.literal("✔");
 	private static final Component CROSS = Component.literal("✕");
@@ -121,6 +123,15 @@ public final class CEHudClient {
 	 */
 	public static boolean isRendererEntity(Entity entity) {
 		return serverSupported && (entity instanceof Display.ItemDisplay || entity instanceof Display.BlockDisplay);
+	}
+
+	/**
+	 * With "real custom blocks" enabled, the CraftEngine client mod registers placeholder blocks
+	 * ({@code craftengine:custom_N}) and the server sends those instead of vanilla carriers. They are always CE blocks,
+	 * but never part of the server's carrier list.
+	 */
+	private static boolean isCraftEnginePlaceholder(BlockState state) {
+		return CRAFTENGINE_NAMESPACE.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace());
 	}
 
 	public static void handleCarriers(CEHudPackets.Carriers payload) {
@@ -194,7 +205,8 @@ public final class CEHudClient {
 		checkLevel();
 		if (accessor instanceof BlockAccessorImpl block) {
 			BlockState state = block.getBlockState();
-			if (!carriers.contains(state)) {
+			boolean placeholder = isCraftEnginePlaceholder(state);
+			if (!placeholder && !carriers.contains(state)) {
 				return accessor;
 			}
 			BlockPos pos = block.getPosition();
@@ -206,15 +218,16 @@ public final class CEHudClient {
 				matched = entry;
 				return accessor;
 			}
-			if (!vanillaBlocks.containsKey(pos)) {
-				long now = System.currentTimeMillis();
-				if (!pos.equals(pendingPos)) {
-					pendingPos = pos.immutable();
-					pendingSince = now;
-				}
-				if (now - pendingSince < HOLD_MILLIS) {
-					return null;
-				}
+			if (vanillaBlocks.containsKey(pos)) {
+				return placeholder ? null : accessor;
+			}
+			long now = System.currentTimeMillis();
+			if (!pos.equals(pendingPos)) {
+				pendingPos = pos.immutable();
+				pendingSince = now;
+			}
+			if (now - pendingSince < HOLD_MILLIS) {
+				return null;
 			}
 			return accessor;
 		}
